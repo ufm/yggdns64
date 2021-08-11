@@ -1,0 +1,24 @@
+# Listen address
+listen: "[300:dada:feda:f443::228]:53"
+
+# Local prefix for translations
+prefix: "300:dada:feda:f443:ffff::"
+#prefix: "64:ff9b::"
+
+# Forwarders
+forwarders:
+  ".ygg": 192.168.2.161:53
+  ".ufm": 192.168.2.1:53
+
+# Default DNS forwarder
+default: 8.8.8.8:53
+
+# Static addresses
+static:
+  "test.com" : 8.8.8.8
+  "test2.com" : 8.8.8.8
+
+# Cache timers. In minutes
+cache:
+    expiration: 5
+    purge: 10
