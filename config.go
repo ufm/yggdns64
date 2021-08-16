@@ -19,6 +19,7 @@ type Config struct {
 		PurgeTime 	time.Duration  		`yaml:"purge"`
 	} 									`yaml:"cache"`
 	LogLevel        string 				`yaml:"log-level"`
+	StrictIPv6 		bool 				`yaml:"strict-ipv6"`
 }
 
 func InitConfig() (Config, error) {

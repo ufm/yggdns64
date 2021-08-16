@@ -26,6 +26,7 @@ func main() {
 		static:       	cfg.Static,
 		prefix:			prefix,
 		defaultForward: cfg.Default,
+		strictIPv6:		cfg.StrictIPv6,
 	}
 
 	logger := NewLogger(cfg.LogLevel)

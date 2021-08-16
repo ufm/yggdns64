@@ -2,8 +2,11 @@
 listen: "[300:dada:feda:f443::228]:53"
 
 # Local prefix for translations
-prefix: "300:dada:feda:f443:ffff::"
-#prefix: "64:ff9b::"
+prefix: "300:dada:feda:f443:ff::"
+
+# A complete prohibition on the return of A records
+# Otherwise return A records with AAAA
+strict-ipv6: yes
 
 # Forwarders
 forwarders:
