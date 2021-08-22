@@ -1,5 +1,5 @@
 # Listen address
-listen: "[300:dada:feda:f443::228]:53"
+listen: "[303:c771:1561:ed81::1]:53"
 
 # Local prefix for translations
 prefix: "300:dada:feda:f443:ff::"

@@ -3,8 +3,9 @@ package main
 import (
     "net"
     "strings"
+    "strconv"
     "github.com/miekg/dns"
-    "github.com/gdexlab/go-render/render"
+//    "github.com/gdexlab/go-render/render"
     "fmt"
 )
 
@@ -40,6 +41,12 @@ func (proxy *DNSProxy) getResponse(requestMsg *dns.Msg) (*dns.Msg, error) {
         case dns.TypeAAAA:
             answer, err = proxy.processTypeAAAA(dnsServer, &question, requestMsg)
 
+        case dns.TypePTR:
+            answer, err = proxy.processTypePTR(dnsServer, &question, requestMsg)
+
+        case dns.TypeANY:
+            answer, err = proxy.processTypeANY(dnsServer, &question, requestMsg)
+
         default:
             answer, err = proxy.processOtherTypes(dnsServer, &question, requestMsg)
         }
@@ -64,6 +71,71 @@ func (proxy *DNSProxy) processOtherTypes(dnsServer string, q *dns.Question, requ
         return nil, err
     }
 
+    return msg, nil
+}
+
+
+// Query ANY
+func (proxy *DNSProxy) processTypeANY(dnsServer string, q *dns.Question, requestMsg *dns.Msg) (*dns.Msg, error) {
+    queryMsg := new(dns.Msg)
+    requestMsg.CopyTo(queryMsg)
+    queryMsg.Question = []dns.Question{*q}
+
+    msg, err := lookup(dnsServer, queryMsg)
+    if err != nil {
+        return nil, err
+    }
+
+    // Recompile reply
+    answer := msg.Answer
+    msg.Answer = make([]dns.RR, 0)
+    for _, orr := range answer {
+        switch rr := orr.(type) {
+            case *dns.AAAA: // Skip real IPv6
+            case *dns.A:
+                nrr, _ := dns.NewRR(q.Name + " IN AAAA " + proxy.MakeFakeIP(rr.A))
+                msg.Answer = append(msg.Answer, nrr)
+                if !proxy.strictIPv6 {
+                    msg.Answer = append(msg.Answer, rr)
+                }
+            default:
+                msg.Answer = append(msg.Answer, rr)
+        }
+    }
+
+    return msg, nil
+}
+
+// Query PTR
+func (proxy *DNSProxy) processTypePTR(dnsServer string, q *dns.Question, requestMsg *dns.Msg) (*dns.Msg, error) {
+    queryMsg := new(dns.Msg)
+    requestMsg.CopyTo(queryMsg)
+//    queryMsg.Question = []dns.Question{*q}
+
+    ip, err := proxy.ReversePTR(q.Name)
+    if err != nil {
+        return nil, err
+    }
+    origQuestion := requestMsg.Question
+    q.Name, _ = dns.ReverseAddr(ip.String())
+    queryMsg.Question = []dns.Question{*q}
+
+    msg, err := lookup(dnsServer, queryMsg)
+    if err != nil {
+        return nil, err
+    }
+    msg.Question = origQuestion
+    answer := make([]dns.RR, 0)
+    for _, orr := range msg.Answer {
+        a, okA := orr.(*dns.PTR)
+        if okA {
+            rr, _ := dns.NewRR(origQuestion[0].Name + " IN PTR " + a.Ptr)
+            answer = append(answer, rr)
+        }
+    }
+    msg.Answer = answer
+    msg.Question[0].Qtype = dns.TypePTR
+//fmt.Printf("\nPTR %s\n",render.Render(msg))
     return msg, nil
 }
 
@@ -118,7 +190,6 @@ func (proxy *DNSProxy) processTypeAAAA(dnsServer string, q *dns.Question, reques
             return nil, err
         }
 
-fmt.Printf("\n%s\n",render.Render(msg))
         answer := make([]dns.RR, 0)
 
         for _, orr := range msg.Answer {
@@ -234,6 +305,58 @@ func (proxy *DNSProxy) MakeFakeIP(r net.IP) (string) {
         ip[12] = r[0]       
     }
     return ip.String()
+}
+
+func ReversePTR(ptr string) (net.IP, error) {
+    var ip net.IP
+    if !strings.HasSuffix(ptr, ".in-addr.arpa.") && !strings.HasSuffix(ptr, ".ip6.arpa.") {
+        return ip, fmt.Errorf("Wrong ptr address in query %s", ptr)
+    }
+    s := strings.Split(ptr, ".")
+    switch len(s) {
+        case 7: // ipv4 in-addr arpa
+            ip = make([]byte, net.IPv4len)
+            for i , j := 0, net.IPv4len - 1; i < 4; i, j = i + 1, j - 1 {
+                a, err := strconv.ParseUint(s[i], 10, 8)
+                if err != nil {
+                    return net.IP{}, err
+                }
+                ip[j] = byte(a)
+            }
+        case 35: // ipv6 ipv6 arpa
+            ip = make([]byte, net.IPv6len)
+            for i , j := 0, net.IPv6len - 1; i < 32; i, j = i + 2, j - 1 {
+                a, err := strconv.ParseUint(s[i], 16, 8)
+                if err != nil { return net.IP{}, err }
+                b, err := strconv.ParseUint(s[i+1], 16, 8)
+                if err != nil { return net.IP{}, err }
+                ip[j] = byte(b) << 4 | byte(a)
+            }
+        default: // wrong length
+            return ip, fmt.Errorf("Wrong PTR in query %s", ptr)
+    }
+    return ip, nil
+}
+
+func (proxy *DNSProxy) ReversePTR(ptr string) (ipv4 net.IP, err error) {
+    var ip net.IP
+    ip, err = ReversePTR(ptr)
+    if err != nil { return }
+    if len(ip) != net.IPv6len {
+        err = fmt.Errorf("PTR is not IPv6")
+    }
+    for i := 0; i < 12; i++ {
+        if ip[i] != proxy.prefix[i] {
+            err = fmt.Errorf("PTR doesn't have our prefix")
+            return
+        }
+    }
+    ipv4 = make([]byte, 4)
+    ipv4[3] = ip[15]
+    ipv4[2] = ip[14]
+    ipv4[1] = ip[13]
+    ipv4[0] = ip[12]       
+    return
 }
 
 func init() {
