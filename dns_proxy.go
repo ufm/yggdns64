@@ -114,7 +114,9 @@ func (proxy *DNSProxy) processTypePTR(dnsServer string, q *dns.Question, request
 
     ip, err := proxy.ReversePTR(q.Name)
     if err != nil {
-        return nil, err
+        queryMsg.MsgHdr.Rcode  = dns.RcodeNameError
+        queryMsg.MsgHdr.Opcode = dns.OpcodeNotify
+        return queryMsg, nil
     }
     origQuestion := requestMsg.Question
     q.Name, _ = dns.ReverseAddr(ip.String())
