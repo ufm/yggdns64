@@ -93,13 +93,29 @@ func (proxy *DNSProxy) processTypeANY(dnsServer string, q *dns.Question, request
         switch rr := orr.(type) {
             case *dns.AAAA: // Skip real IPv6
             case *dns.A:
-                nrr, _ := dns.NewRR(q.Name + " IN AAAA " + proxy.MakeFakeIP(rr.A))
+                nrr, _ := dns.NewRR(rr.Hdr.Name + " IN AAAA " + proxy.MakeFakeIP(rr.A))
                 msg.Answer = append(msg.Answer, nrr)
                 if !proxy.strictIPv6 {
                     msg.Answer = append(msg.Answer, rr)
                 }
             default:
                 msg.Answer = append(msg.Answer, rr)
+        }
+    }
+
+    answer = msg.Extra
+    msg.Extra = make([]dns.RR, 0)
+    for _, orr := range answer {
+        switch rr := orr.(type) {
+            case *dns.AAAA: // Skip real IPv6
+            case *dns.A:
+                nrr, _ := dns.NewRR(rr.Hdr.Name + " IN AAAA " + proxy.MakeFakeIP(rr.A))
+                msg.Extra = append(msg.Extra, nrr)
+                if !proxy.strictIPv6 {
+                    msg.Extra = append(msg.Extra, rr)
+                }
+            default:
+                msg.Extra = append(msg.Extra, rr)
         }
     }
 
