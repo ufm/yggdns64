@@ -8,6 +8,13 @@ prefix: "300:dada:feda:f443:ff::"
 # Otherwise return A records with AAAA
 strict-ipv6: yes
 
+# What to do with an "0.0.0.0" and [::] addresses
+#   "ignore"  - treated like a regular address (i.e. 0.0.0.0 return as [prefix::], [::] - drop)
+#               default behavior.
+#   "process" - 0.0.0.0 translate to [::]. [::] return "as-is"
+#   "discard" - discard this address
+invalid-address: ignore
+
 # Forwarders
 forwarders:
   ".ygg": 192.168.2.161:53
