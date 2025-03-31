@@ -28,6 +28,7 @@ func main() {
 		defaultForward: cfg.Default,
 		strictIPv6:     cfg.StrictIPv6,
 		ia:             cfg.IA,
+                FallBack:       cfg.FallBack,
 	}
 
 	logger := NewLogger(cfg.LogLevel)

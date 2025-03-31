@@ -4,9 +4,15 @@ listen: "[303:c771:1561:ed81::1]:53"
 # Local prefix for translations
 prefix: "300:dada:feda:f443:ff::"
 
+# Prefix of mesh-net. 200::/7 (yggdrasil) by default
+mesh-prefix: "200::/7"
+
 # A complete prohibition on the return of A records
 # Otherwise return A records with AAAA
 strict-ipv6: yes
+
+#If enabled, non-matced to mesh-prefix AAAA records will be returned if no A record exists. Disabled by default.
+allow-fallback-aaaa: no 
 
 # What to do with an "0.0.0.0" and [::] addresses
 #   "ignore"  - treated like a regular address (i.e. 0.0.0.0 return as [prefix::], [::] - drop)

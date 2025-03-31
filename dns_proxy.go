@@ -19,6 +19,7 @@ type DNSProxy struct {
 	prefix         net.IP
 	strictIPv6     bool
 	ia             InvalidAddress
+	FallBack       bool
 }
 
 func (proxy *DNSProxy) getResponse(requestMsg *dns.Msg) (*dns.Msg, error) {
@@ -216,7 +217,7 @@ func (proxy *DNSProxy) processTypeAAAA(dnsServer string, q *dns.Question, reques
 		}
 
 		// No static.
-		// Query AAAA address, may be it's already ygg?
+		// Query AAAA address, may be it's already mesh?
 
 		queryMsg := new(dns.Msg)
 		requestMsg.CopyTo(queryMsg)
@@ -228,6 +229,7 @@ func (proxy *DNSProxy) processTypeAAAA(dnsServer string, q *dns.Question, reques
 		}
 
 		answer := make([]dns.RR, 0)
+		answerv6 := make([]dns.RR, 0)
 
 		for _, orr := range msg.Answer {
 			a, okA := orr.(*dns.AAAA)
@@ -235,6 +237,7 @@ func (proxy *DNSProxy) processTypeAAAA(dnsServer string, q *dns.Question, reques
 				if yggnet.Contains(a.AAAA) {
 					answer = append(answer, orr)
 				}
+				answerv6 = append(answerv6, orr)
 			}
 		}
 
@@ -245,7 +248,7 @@ func (proxy *DNSProxy) processTypeAAAA(dnsServer string, q *dns.Question, reques
 			return msg, nil
 		}
 
-		// No. Ok, query A address and translate to ygg.
+		// No. Ok, query A address and translate to mesh.
 
 		q.Qtype = dns.TypeA
 		queryMsg = new(dns.Msg)
@@ -283,6 +286,10 @@ func (proxy *DNSProxy) processTypeAAAA(dnsServer string, q *dns.Question, reques
 
 		if len(answer) > 0 {
 			proxy.Cache.Set(q.Name, answer, 0)
+		} else if proxy.FallBack && len(answerv6) > 0 {
+			msg.Answer = answerv6
+			//			msg.MsgHdr.Response = true
+			proxy.Cache.Set(q.Name, answerv6, 0)
 		}
 		return msg, nil
 	} else {
@@ -411,8 +418,4 @@ func (proxy *DNSProxy) ReversePTR(ptr string) (ipv4 net.IP, err error) {
 	ipv4[1] = ip[13]
 	ipv4[0] = ip[12]
 	return
-}
-
-func init() {
-	_, yggnet, _ = net.ParseCIDR("200::/7")
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"net"
 	"strings"
 	"time"
 	//	  "github.com/gdexlab/go-render/render"
@@ -21,6 +22,7 @@ const (
 type Config struct {
 	Listen     string            `yaml:"listen"`
 	Prefix     string            `yaml:"prefix"`
+	MeshPrefix string            `yaml:"mesh-prefix"`
 	Forwarders map[string]string `yaml:"forwarders"`
 	Default    string            `yaml:"default"`
 	IA         InvalidAddress    `yaml:"invalid-address"`
@@ -31,6 +33,7 @@ type Config struct {
 	} `yaml:"cache"`
 	LogLevel   string `yaml:"log-level"`
 	StrictIPv6 bool   `yaml:"strict-ipv6"`
+	FallBack   bool   `yaml:"allow-fallback-aaaa"`
 }
 
 func (a InvalidAddress) String() string {
@@ -88,7 +91,14 @@ func parseFile(filePath string) (*Config, error) {
 	cfg.Cache.ExpTime = 0
 	cfg.Cache.PurgeTime = 0
 	cfg.LogLevel = "info"
+	cfg.MeshPrefix = "200::/7"
+	cfg.FallBack = false
 	if err := yaml.UnmarshalStrict(body, &cfg); err != nil {
+		return nil, err
+	}
+
+	_, yggnet, err = net.ParseCIDR(cfg.MeshPrefix)
+	if err != nil {
 		return nil, err
 	}
 
